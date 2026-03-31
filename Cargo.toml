@@ -1,0 +1,37 @@
+[package]
+name = "llm-review-sdk"
+version = "0.1.0"
+edition = "2021"
+authors = ["Platform Network"]
+license = "Apache-2.0"
+description = "SDK for LLM-based code review and quality assessment"
+repository = "https://github.com/PlatformNetwork/llm-review-sdk"
+keywords = ["llm", "review", "code-quality", "sdk", "bittensor"]
+categories = ["development-tools", "api-clients"]
+
+[features]
+default = ["std"]
+std = ["thiserror", "serde/std", "serde_json/std", "chrono", "uuid"]
+async = ["tokio", "reqwest"]
+plagiarism = ["plagiarism-sdk", "std"]
+
+[dependencies]
+serde = { version = "1.0", default-features = false, features = ["derive"] }
+serde_json = { version = "1.0", default-features = false }
+tokio = { version = "1.0", features = ["rt-multi-thread", "macros"], optional = true }
+reqwest = { version = "0.11", features = ["json"], optional = true }
+axum = "0.7"
+tower-service = "0.3"
+tower-http = { version = "0.5", features = ["cors"] }
+async-trait = "0.1"
+thiserror = { version = "2.0", optional = true }
+chrono = { version = "0.4", features = ["serde"], optional = true }
+uuid = { version = "1.0", features = ["v4", "serde"], optional = true }
+schemars = "0.8"
+plagiarism-sdk = { path = "../plagiarism-sdk", optional = true }
+
+[dev-dependencies]
+tokio = { version = "1.0", features = ["macros", "rt-multi-thread"] }
+
+[package.metadata.docs.rs]
+all-features = true
