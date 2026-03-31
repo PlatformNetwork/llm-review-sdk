@@ -43,6 +43,9 @@ pub mod workflow;
 #[cfg(feature = "std")]
 pub mod server;
 
+#[cfg(feature = "std")]
+pub mod zip_project;
+
 #[cfg(feature = "plagiarism")]
 pub mod integration;
 
@@ -60,6 +63,9 @@ pub use workflow::{ReviewWorkflow, WorkflowError};
 
 #[cfg(feature = "std")]
 pub use server::{Server, ServerError, InferenceRequest, InferenceResponse};
+
+#[cfg(feature = "std")]
+pub use zip_project::{ExtractedProject, FileInfo, ProjectTree, ZipError};
 
 /// Crate-level error type
 #[cfg(feature = "std")]

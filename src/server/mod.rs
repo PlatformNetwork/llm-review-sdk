@@ -8,7 +8,7 @@ pub mod types;
 // Re-export types for convenience
 pub use types::{
     ErrorResponse, HealthResponse, InferenceRequest, InferenceResponse,
-    RuleConfig, Violation,
+    RuleConfig, Violation, ProjectInput, FileMatch, CodeMatch,
 };
 
 use std::net::SocketAddr;

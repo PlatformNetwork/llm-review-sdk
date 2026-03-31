@@ -6,11 +6,56 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 // Import types from other modules
-use crate::rules::RuleViolation;
 use crate::agents::AgentConfig;
+use crate::rules::RuleViolation;
 
 /// Violation type alias for convenience.
 pub type Violation = RuleViolation;
+
+use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", content = "data")]
+pub enum ProjectInput {
+    #[serde(rename = "code")]
+    Code(String),
+    #[serde(rename = "zip")]
+    Zip(String),
+}
+
+impl ProjectInput {
+    pub fn from_zip_bytes(bytes: Vec<u8>) -> Self {
+        Self::Zip(BASE64.encode(&bytes))
+    }
+
+    pub fn to_zip_bytes(&self) -> Option<Vec<u8>> {
+        match self {
+            Self::Zip(b64) => BASE64.decode(b64).ok(),
+            _ => None,
+        }
+    }
+
+    pub fn as_code(&self) -> Option<&str> {
+        match self {
+            Self::Code(s) => Some(s),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FileMatch {
+    pub file_a: String,
+    pub file_b: String,
+    pub similarity: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CodeMatch {
+    pub line_a: u32,
+    pub line_b: u32,
+    pub snippet: String,
+}
 
 /// Configuration for a rule in a review request.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -30,17 +75,41 @@ pub struct RuleConfig {
 pub struct InferenceRequest {
     /// Name of the agent to use for review
     pub agent_name: String,
-    /// Source code to analyze
-    pub input_code: String,
-    /// Optional code to compare against (for similarity detection)
+    /// Input to analyze (code or ZIP project)
+    pub input: ProjectInput,
+    /// Optional comparison input (for similarity detection)
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub comparison_code: Option<String>,
+    pub comparison: Option<ProjectInput>,
     /// Rules to apply during review
     pub rules: Vec<RuleConfig>,
     /// Agent configuration
     pub config: AgentConfig,
     /// Unique identifier for this request
     pub request_id: String,
+}
+
+impl InferenceRequest {
+    pub fn from_code(agent: &str, code: &str) -> Self {
+        Self {
+            agent_name: agent.to_string(),
+            input: ProjectInput::Code(code.to_string()),
+            comparison: None,
+            rules: vec![],
+            config: AgentConfig::new("reviewer", "Reviewer", "Code reviewer agent"),
+            request_id: uuid::Uuid::new_v4().to_string(),
+        }
+    }
+
+    pub fn from_zip(agent: &str, zip_bytes: Vec<u8>) -> Self {
+        Self {
+            agent_name: agent.to_string(),
+            input: ProjectInput::from_zip_bytes(zip_bytes),
+            comparison: None,
+            rules: vec![],
+            config: AgentConfig::new("reviewer", "Reviewer", "Code reviewer agent"),
+            request_id: uuid::Uuid::new_v4().to_string(),
+        }
+    }
 }
 
 /// Response from a code review inference.
@@ -111,8 +180,8 @@ mod tests {
     fn inference_request_serialization() {
         let request = InferenceRequest {
             agent_name: "test-agent".to_string(),
-            input_code: "fn main() {}".to_string(),
-            comparison_code: None,
+            input: ProjectInput::Code("fn main() {}".to_string()),
+            comparison: None,
             rules: vec![],
             config: AgentConfig::new("test", "Test Agent", "A test agent"),
             request_id: uuid::Uuid::new_v4().to_string(),
@@ -121,6 +190,12 @@ mod tests {
         let json = serde_json::to_string(&request).unwrap();
         assert!(json.contains("test-agent"));
         assert!(json.contains("fn main()"));
+    }
+
+    #[test]
+    fn inference_request_from_code() {
+        let request = InferenceRequest::from_code("reviewer", "print('hello')");
+        assert!(matches!(request.input, ProjectInput::Code(_)));
     }
 
     #[test]
@@ -142,8 +217,7 @@ mod tests {
 
     #[test]
     fn error_response_creation() {
-        let error = ErrorResponse::new("ERR001", "Test error")
-            .with_details("Additional details");
+        let error = ErrorResponse::new("ERR001", "Test error").with_details("Additional details");
 
         assert_eq!(error.code, "ERR001");
         assert_eq!(error.message, "Test error");
